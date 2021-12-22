@@ -10465,6 +10465,100 @@ int cmd_cec(int argc, char *argv[])
 	return -1;
 }
 
+int cmd_raw(int argc, char **argv)
+{
+	char *e;
+	char *wrbuf = NULL;
+	char *rdbuf = NULL;
+	int wrsz = 0, rdsz = 0;
+	uint16_t command = 0;
+	int rv = 1;
+
+	if (argc < 2) {
+		fprintf(stderr, "Usage: %s [command] [writes]\r\n", argv[0]);
+		goto out;
+	}
+
+	command = (uint16_t)strtoul(argv[1], &e, 0);
+	if (e && *e) {
+		fprintf(stderr, "Invalid command \"%s\"\r\n", argv[1]);
+		goto out;
+	}
+
+	if (argc > 2) {
+		char t;
+		unsigned long long v;
+		char *bptr;
+		wrbuf = malloc(256);
+		bptr = wrbuf;
+		e = argv[2];
+		while (*e) {
+			t = *e++;
+			v = strtoull(e, &e, 16);
+			switch (t) {
+			case 'b': {
+				uint8_t nv = (uint8_t)v;
+				memcpy(bptr, &nv, sizeof(nv));
+				bptr += sizeof(nv);
+				break;
+			}
+			case 'w': {
+				uint16_t nv = (uint16_t)v;
+				memcpy(bptr, &nv, sizeof(nv));
+				bptr += sizeof(nv);
+				break;
+			}
+			case 'd': {
+				uint32_t nv = (uint32_t)v;
+				memcpy(bptr, &nv, sizeof(nv));
+				bptr += sizeof(nv);
+				break;
+			}
+			case 'q': {
+				uint64_t nv = (uint64_t)v;
+				memcpy(bptr, &nv, sizeof(nv));
+				bptr += sizeof(nv);
+				break;
+			}
+			default:
+				fprintf(stderr,
+					"Invalid typecode '%c' at position %d.\r\n",
+					t, e - argv[2]);
+				goto out;
+			}
+			if (*e == ',')
+				++e;
+		}
+		wrsz = bptr - wrbuf;
+	}
+
+	fprintf(stderr, "Writing %4.04x [", command);
+	for (int i = 0; i < wrsz; ++i) {
+		fprintf(stderr, "%2.02X%s", wrbuf[i], i == wrsz - 1 ? "" : " ");
+	}
+	fprintf(stderr, "]\r\n");
+
+	rdbuf = malloc(256);
+	rdsz = 256;
+	rdsz = ec_command(command, 0, wrbuf, wrsz, rdbuf, rdsz);
+	if (rdsz < 0) {
+		fprintf(stderr, "EC Error\r\n");
+		goto out;
+	}
+
+	fprintf(stderr, "Read    %4.04x [", rdsz);
+	for (int i = 0; i < rdsz; ++i) {
+		fprintf(stderr, "%2.02X%s", rdbuf[i], i == rdsz - 1 ? "" : " ");
+	}
+	fprintf(stderr, "]\r\n");
+	rv = 0;
+
+out:
+	free(wrbuf);
+	free(rdbuf);
+	return !!rv;
+}
+
 /* NULL-terminated list of commands */
 const struct command commands[] = {
 	{"adcread", cmd_adc_read},
@@ -10568,6 +10662,7 @@ const struct command commands[] = {
 	{"pwmsetkblight", cmd_pwm_set_keyboard_backlight},
 	{"pwmsetduty", cmd_pwm_set_duty},
 	{"rand", cmd_rand},
+	{"raw", cmd_raw},
 	{"readtest", cmd_read_test},
 	{"reboot_ec", cmd_reboot_ec},
 	{"rollbackinfo", cmd_rollback_info},
@@ -10642,6 +10737,8 @@ int main(int argc, char *argv[])
 		case OPT_INTERFACE:
 			if (!strcasecmp(optarg, "dev")) {
 				interfaces = COMM_DEV;
+			} else if (!strcasecmp(optarg, "fwk")) {
+				interfaces = COMM_FWK;
 			} else if (!strcasecmp(optarg, "lpc")) {
 				interfaces = COMM_LPC;
 			} else if (!strcasecmp(optarg, "i2c")) {
