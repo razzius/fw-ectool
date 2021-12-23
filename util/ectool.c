@@ -10465,6 +10465,31 @@ int cmd_cec(int argc, char *argv[])
 	return -1;
 }
 
+void hexdump(const uint8_t *data, int len)
+{
+	int i, j;
+
+	if (!data || !len)
+		return;
+
+	for (i = 0; i < len; i += 16) {
+		/* Left column (Hex) */
+		for (j = i; j < i + 16; j++) {
+			if (j < len)
+				fprintf(stderr, " %02x", data[j]);
+			else
+				fprintf(stderr, "   ");
+		}
+		/* Right column (ASCII) */
+		fprintf(stderr, " |");
+		for (j = i; j < i + 16; j++) {
+			int c = j < len ? data[j] : ' ';
+			fprintf(stderr, "%c", isprint(c) ? c : '.');
+		}
+		fprintf(stderr, "|\n");
+	}
+}
+
 int cmd_raw(int argc, char **argv)
 {
 	char *e;
@@ -10522,8 +10547,8 @@ int cmd_raw(int argc, char **argv)
 			}
 			default:
 				fprintf(stderr,
-					"Invalid typecode '%c' at position %d.\r\n",
-					t, e - argv[2]);
+					"Invalid typecode '%c' at position %ld.\r\n",
+					t, (long)(e - argv[2]));
 				goto out;
 			}
 			if (*e == ',')
@@ -10532,11 +10557,8 @@ int cmd_raw(int argc, char **argv)
 		wrsz = bptr - wrbuf;
 	}
 
-	fprintf(stderr, "Writing %4.04x [", command);
-	for (int i = 0; i < wrsz; ++i) {
-		fprintf(stderr, "%2.02X%s", wrbuf[i], i == wrsz - 1 ? "" : " ");
-	}
-	fprintf(stderr, "]\r\n");
+	fprintf(stderr, "%4.04x(...%u bytes...)\r\n", command, wrsz);
+	hexdump(wrbuf, wrsz);
 
 	rdbuf = malloc(256);
 	rdsz = 256;
@@ -10546,11 +10568,8 @@ int cmd_raw(int argc, char **argv)
 		goto out;
 	}
 
-	fprintf(stderr, "Read    %4.04x [", rdsz);
-	for (int i = 0; i < rdsz; ++i) {
-		fprintf(stderr, "%2.02X%s", rdbuf[i], i == rdsz - 1 ? "" : " ");
-	}
-	fprintf(stderr, "]\r\n");
+	fprintf(stderr, "Read %u bytes\r\n", rdsz);
+	hexdump(rdbuf, rdsz);
 	rv = 0;
 
 out:
