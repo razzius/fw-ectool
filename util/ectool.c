@@ -33,6 +33,8 @@
 #include "panic.h"
 #include "usb_pd.h"
 
+#include "framework_oem_ec_commands.h"
+
 /* Maximum flash size (16 MB, conservative) */
 #define MAX_FLASH_SIZE 0x1000000
 
@@ -166,6 +168,8 @@ const char help_str[] =
 	"      Prints timing statisitcs relating to capture and matching\n"
 	"  fptemplate [<infile>|<index 0..2>]\n"
 	"      Add a template if <infile> is provided, else dump it\n"
+	"  fwchargelimit [<limit>]\n"
+	"      Set the Framework Laptop's battery charge limit, otherwise query it\n"
 	"  gpioget <GPIO name>\n"
 	"      Get the value of GPIO signal\n"
 	"  gpioset <GPIO name>\n"
@@ -10490,6 +10494,33 @@ void hexdump(const uint8_t *data, int len)
 	}
 }
 
+int cmd_fw_charge_limit(int argc, char *argv[])
+{
+	struct fw_ec_params_charge_limit p;
+	struct fw_ec_response_charge_limit r;
+	char* e;
+	int rv;
+
+	p.flags = FW_EC_CHARGE_LIMIT_QUERY;
+
+	if (argc > 1) {
+		p.flags |= FW_EC_CHARGE_LIMIT_SET;
+		p.limit = (uint16_t)strtol(argv[1], &e, 0);
+		if (e && *e) {
+			fprintf(stderr, "invalid argument \"%s\"\n", argv[1]);
+			return 1;
+		}
+	}
+
+	rv = ec_command(FW_EC_CMD_CHARGE_LIMIT, 0, &p, sizeof(p), &r, sizeof(r));
+	if (rv < 0) {
+		return rv;
+	}
+
+	printf("%d\n", (int)r.limit);
+	return 0;
+}
+
 int cmd_raw(int argc, char **argv)
 {
 	char *e;
@@ -10630,6 +10661,7 @@ const struct command commands[] = {
 	{"fpseed", cmd_fp_seed},
 	{"fpstats", cmd_fp_stats},
 	{"fptemplate", cmd_fp_template},
+	{"fwchargelimit", cmd_fw_charge_limit},
 	{"gpioget", cmd_gpio_get},
 	{"gpioset", cmd_gpio_set},
 	{"hangdetect", cmd_hang_detect},
