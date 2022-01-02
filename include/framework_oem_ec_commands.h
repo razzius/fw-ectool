@@ -64,9 +64,14 @@ enum fw_ec_power_button_brightness {
 	FW_EC_POWER_BUTTON_BRIGHTNESS_LOW
 };
 
-struct fw_ec_params_set_power_button_brightness {
-	uint16_t brightness; // from above constants
-} __ec_align1;
+enum fw_ec_power_button_brightess_op {
+	FW_EC_POWER_BUTTON_BRIGHTNESS_SET,
+	FW_EC_POWER_BUTTON_BRIGHTNESS_GET,
+};
 
+struct fw_ec_params_set_power_button_brightness {
+	uint8_t brightness; // from above constants
+	uint8_t op;
+} __ec_align1;
 
 #endif
