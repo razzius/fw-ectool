@@ -207,28 +207,10 @@ static int ec_command_lpc_3(int command, int version, const void *outdata,
 	return r.rs.data_len;
 }
 
-static int ec_readmem_lpc(int offset, int bytes, void *dest)
+static int ec_readmem_fwk(int offset, int bytes, void *dest)
 {
-	int i = offset;
-	char *s = (char *)(dest);
-	int cnt = 0;
-
-	if (offset >= EC_MEMMAP_SIZE - bytes)
-		return -1;
-
-	if (bytes) { /* fixed length */
-		for (; cnt < bytes; i++, s++, cnt++)
-			*s = inb(EC_LPC_ADDR_MEMMAP + i);
-	} else { /* string */
-		for (; i < EC_MEMMAP_SIZE; i++, s++) {
-			*s = inb(EC_LPC_ADDR_MEMMAP + i);
-			cnt++;
-			if (!*s)
-				break;
-		}
-	}
-
-	return cnt;
+	ec_transact(EC_TX_READ, (EC_LPC_ADDR_MEMMAP - EC_HOST_CMD_REGION0) | (offset & 0x7FFF), dest, bytes);
+	return bytes;
 }
 
 int comm_init_fwk(void)
@@ -246,7 +228,7 @@ int comm_init_fwk(void)
 	ec_max_insize =
 		EC_LPC_HOST_PACKET_SIZE - sizeof(struct ec_host_response);
 
-	ec_readmem = ec_readmem_lpc;
+	ec_readmem = ec_readmem_fwk;
 	return 0;
 }
 
